@@ -1,12 +1,14 @@
 import streamlit as st
 import pandas as pd
 import gspread
+from PIL import Image
+import requests
 import json
 import re
 from google.oauth2.service_account import Credentials
 from datetime import datetime
 import random
-
+from io import BytesIO
 # ———————————————
 # 1) Google‐Sheets writer (unchanged)
 # ———————————————
@@ -81,84 +83,92 @@ st.markdown(f"**User:** `{st.session_state.user_id}`")
 st.markdown("---")
 
 if not is_last:
+    # … inside your `if not is_last:` block, right after:
     st.markdown(f"### Item {idx+1} of {len(samples)}")
 
-    # 1) Edit prompt
-    st.markdown("**1) Edit Prompt**")
-    prompt_html = f"""
-    <div style="
-        background-color: #f0f8ff;
-        padding: 12px;
-        border-radius: 6px;
-        border: 1px solid #cce5ff;
-        ">
-    {sample["edit_prompt"]}
-    </div>
-    """
-    st.markdown(prompt_html, unsafe_allow_html=True)
+    # Create a 2-column layout: image on the left, all the text on the right
+    col_img, col_content = st.columns([1, 4])
 
-    # 2) Annotator edits (diff-style)
-    st.markdown("**2) Annotator’s Ground-Truth Edits**")
-    with st.expander("Show Annotator Edits", expanded=False):
-        st.code(sample["annotator_edits"], language="diff")
+    # 0) Display the image URL in the left column
+    with col_img:
+        url = sample["image_url"]
+        try:
+            resp = requests.get(url, timeout=5)
+            resp.raise_for_status()
+            img = Image.open(BytesIO(resp.content))
+            st.image(img, use_container_width=True)
+        except Exception as e:
+            st.error(f"Couldn't load image:\n{e}")
 
-    # 3) Model prediction (diff-style)
-    st.markdown("**3) Model’s Original Prediction**")
-    with st.expander("Show Model Prediction", expanded=False):
-        st.code(sample["model_prediction"], language="diff")
-
-    # 4) GPT-4 output (parsed JSON)
-    st.markdown("**4) GPT-4’s Full Output**")
-    raw = sample["gpt4o_full_output"]
-
-    # 1) try to extract the JSON payload between ```json … ```
-    m = re.search(r"```json\s*(\{.*?\})\s*```", raw, flags=re.DOTALL)
-    json_str = m.group(1) if m else raw
-
-
-    # 1) extract JSON between ```json … ``` if present
-    m = re.search(r"```json\s*(\{.*?\})\s*```", raw, flags=re.DOTALL)
-    json_str = m.group(1) if m else raw
-
-    # 2) parse & display
-    try:
-        parsed = json.loads(json_str)
-        rating = int(parsed.get("rating", 0))
-        rationale = parsed.get("rationale", "").strip()
-
-        # 3) map rating 1–5 into t∈[0,1]
-        t = max(0, min((rating - 1) / 4, 1))
-        r = int(255 * (1 - t))
-        g = int(255 * t)
-        hex_color = f"#{r:02x}{g:02x}00"
-
-        # 4) show the colored rating
-        st.markdown(
-            f"<div style='font-size:28px; font-weight:bold; color:{hex_color};'>"
-            f"🔢 GPT-4 Rating: {rating}"
-            "</div>",
-            unsafe_allow_html=True
-        )
-
-        # 5) show the rationale
-        st.markdown("**💡 GPT-4 Rationale:**")
-        rationale_html = f"""
+    # 1) Move everything that follows into the right column…
+    with col_content:
+        # 1) Edit prompt
+        st.markdown("**1) Edit Prompt**")
+        prompt_html = f"""
         <div style="
-            background-color: #fff3cd;
+            background-color: #f0f8ff;
             padding: 12px;
             border-radius: 6px;
-            border: 1px solid #ffeeba;
+            border: 1px solid #cce5ff;
             ">
-        {rationale}
+        {sample["edit_prompt"]}
         </div>
         """
-        st.markdown(rationale_html, unsafe_allow_html=True)
+        st.markdown(prompt_html, unsafe_allow_html=True)
 
-    except json.JSONDecodeError:
-        # fallback: raw code block if parsing fails
-        st.warning("⚠️ Could not parse GPT-4 output as JSON. Showing raw:")
-        st.code(raw, language="json")
-    st.markdown("### Does GPT-4’s output correctly reflect how much the model applied the edit?")
+        # 2) Annotator edits (diff‐style)
+        st.markdown("**2) Annotator’s Ground-Truth Edits**")
+        with st.expander("Show Annotator Edits", expanded=False):
+            st.code(sample["annotator_edits"], language="diff")
+
+        # 3) Model prediction (diff‐style)
+        st.markdown("**3) Model’s Original Prediction**")
+        with st.expander("Show Model Prediction", expanded=False):
+            st.code(sample["model_prediction"], language="diff")
+
+        # 4) GPT-4 output (parsed JSON with colored rating & rationale box)
+        st.markdown("**4) GPT-4’s Full Output**")
+        raw = sample["gpt4o_full_output"]
+
+        # extract JSON block
+        m = re.search(r"```json\s*(\{.*?\})\s*```", raw, flags=re.DOTALL)
+        json_str = m.group(1) if m else raw
+
+        try:
+            parsed = json.loads(json_str)
+            rating = int(parsed.get("rating", 0))
+            rationale = parsed.get("rationale", "").strip()
+
+            # gradient color
+            t = max(0, min((rating - 1) / 4, 1))
+            r = int(255 * (1 - t)); g = int(255 * t)
+            hex_color = f"#{r:02x}{g:02x}00"
+
+            st.markdown(
+                f"<div style='font-size:28px; font-weight:bold; color:{hex_color};'>"
+                f"🔢 GPT-4 Rating: {rating}"
+                "</div>",
+                unsafe_allow_html=True
+            )
+
+            st.markdown("**💡 GPT-4 Rationale:**")
+            rationale_html = f"""
+            <div style="
+                background-color: #fff3cd;
+                padding: 12px;
+                border-radius: 6px;
+                border: 1px solid #ffeeba;
+                ">
+            {rationale}
+            </div>
+            """
+            st.markdown(rationale_html, unsafe_allow_html=True)
+
+        except json.JSONDecodeError:
+            st.warning("⚠️ Could not parse GPT-4 output as JSON. Showing raw:")
+            st.code(raw, language="json")
+
+        st.markdown("### Does GPT-4’s output correctly reflect how much the model applied the edit?")
 
     # judgment buttons
     cols = st.columns(3)
