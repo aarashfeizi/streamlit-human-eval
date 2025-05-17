@@ -55,7 +55,7 @@ st.title("Edit-Alignment Human Evaluation")
 
 if "samples" not in st.session_state:
     df = load_data()
-    st.session_state.samples = prepare_evaluation_samples(df)
+    st.session_state.samples = prepare_evaluation_samples(df, n_samples=10)
     st.session_state.current_idx = 0
     st.session_state.responses = {}
     st.session_state.submitted = False
@@ -187,7 +187,7 @@ if not is_last:
     with restart:
         if st.button("🔄 Restart"):
             df = load_data()
-            st.session_state.samples = prepare_evaluation_samples(df)
+            st.session_state.samples = prepare_evaluation_samples(df, n_samples=10)
             st.session_state.current_idx = 0
             st.session_state.responses = {}
             st.session_state.submitted = False
