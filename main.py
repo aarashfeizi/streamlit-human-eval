@@ -86,89 +86,99 @@ if not is_last:
     # … inside your `if not is_last:` block, right after:
     st.markdown(f"### Item {idx+1} of {len(samples)}")
 
-    # Create a 2-column layout: image on the left, all the text on the right
-    col_img, col_content = st.columns([1, 4])
+    # # Create a 2-column layout: image on the left, all the text on the right
+    # col_img, col_content = st.columns([1, 4])
 
     # 0) Display the image URL in the left column
-    with col_img:
-        url = sample["image_url"]
-        try:
-            resp = requests.get(url, timeout=5)
-            resp.raise_for_status()
-            img = Image.open(BytesIO(resp.content))
-            st.image(img, use_container_width=True)
-        except Exception as e:
-            st.error(f"Couldn't load image:\n{e}")
+    # with col_img:
+    url = sample["image_url"]
+    try:
+        resp = requests.get(sample["image_url"], timeout=5)
+        resp.raise_for_status()
+        img = Image.open(BytesIO(resp.content))
+        st.image(img, use_container_width=True)
+    except Exception as e:
+        st.markdown(
+                f"""
+        <details style="font-size:10px; color:#666; margin-top:4px;">
+        <summary style="cursor: pointer;">Image could not be loaded. :(</summary>
+        <pre style="font-size:9px; color:#444; white-space: pre-wrap;">{e}</pre>
+        </details>
+        """,
+                unsafe_allow_html=True,
+            )
+        # with st.expander("Show error details", expanded=False):
+        #     st.code(str(e))
 
     # 1) Move everything that follows into the right column…
-    with col_content:
-        # 1) Edit prompt
-        st.markdown("**1) Edit Prompt**")
-        prompt_html = f"""
+    # with col_content:
+    # 1) Edit prompt
+    st.markdown("**1) Edit Prompt**")
+    prompt_html = f"""
+    <div style="
+        background-color: #f0f8ff;
+        padding: 12px;
+        border-radius: 6px;
+        border: 1px solid #cce5ff;
+        ">
+    {sample["edit_prompt"]}
+    </div>
+    """
+    st.markdown(prompt_html, unsafe_allow_html=True)
+
+    # 2) Annotator edits (diff‐style)
+    st.markdown("**2) Annotator’s Ground-Truth Edits**")
+    with st.expander("Show Annotator Edits", expanded=False):
+        st.code(sample["annotator_edits"], language="diff")
+
+    # 3) Model prediction (diff‐style)
+    st.markdown("**3) Model’s Original Prediction**")
+    with st.expander("Show Model Prediction", expanded=False):
+        st.code(sample["model_prediction"], language="diff")
+
+    # 4) GPT-4 output (parsed JSON with colored rating & rationale box)
+    st.markdown("**4) GPT-4’s Full Output**")
+    raw = sample["gpt4o_full_output"]
+
+    # extract JSON block
+    m = re.search(r"```json\s*(\{.*?\})\s*```", raw, flags=re.DOTALL)
+    json_str = m.group(1) if m else raw
+
+    try:
+        parsed = json.loads(json_str)
+        rating = int(parsed.get("rating", 0))
+        rationale = parsed.get("rationale", "").strip()
+
+        # gradient color
+        t = max(0, min((rating - 1) / 4, 1))
+        r = int(255 * (1 - t)); g = int(255 * t)
+        hex_color = f"#{r:02x}{g:02x}00"
+
+        st.markdown(
+            f"<div style='font-size:28px; font-weight:bold; color:{hex_color};'>"
+            f"🔢 GPT-4 Rating: {rating}"
+            "</div>",
+            unsafe_allow_html=True
+        )
+
+        st.markdown("**💡 GPT-4 Rationale:**")
+        rationale_html = f"""
         <div style="
-            background-color: #f0f8ff;
+            background-color: #fff3cd;
             padding: 12px;
             border-radius: 6px;
-            border: 1px solid #cce5ff;
+            border: 1px solid #ffeeba;
             ">
-        {sample["edit_prompt"]}
+        {rationale}
         </div>
         """
-        st.markdown(prompt_html, unsafe_allow_html=True)
+        st.markdown(rationale_html, unsafe_allow_html=True)
 
-        # 2) Annotator edits (diff‐style)
-        st.markdown("**2) Annotator’s Ground-Truth Edits**")
-        with st.expander("Show Annotator Edits", expanded=False):
-            st.code(sample["annotator_edits"], language="diff")
+    except json.JSONDecodeError:
+        st.warning("⚠️ Could not parse GPT-4 output as JSON. Showing raw:")
+        st.code(raw, language="json")
 
-        # 3) Model prediction (diff‐style)
-        st.markdown("**3) Model’s Original Prediction**")
-        with st.expander("Show Model Prediction", expanded=False):
-            st.code(sample["model_prediction"], language="diff")
-
-        # 4) GPT-4 output (parsed JSON with colored rating & rationale box)
-        st.markdown("**4) GPT-4’s Full Output**")
-        raw = sample["gpt4o_full_output"]
-
-        # extract JSON block
-        m = re.search(r"```json\s*(\{.*?\})\s*```", raw, flags=re.DOTALL)
-        json_str = m.group(1) if m else raw
-
-        try:
-            parsed = json.loads(json_str)
-            rating = int(parsed.get("rating", 0))
-            rationale = parsed.get("rationale", "").strip()
-
-            # gradient color
-            t = max(0, min((rating - 1) / 4, 1))
-            r = int(255 * (1 - t)); g = int(255 * t)
-            hex_color = f"#{r:02x}{g:02x}00"
-
-            st.markdown(
-                f"<div style='font-size:28px; font-weight:bold; color:{hex_color};'>"
-                f"🔢 GPT-4 Rating: {rating}"
-                "</div>",
-                unsafe_allow_html=True
-            )
-
-            st.markdown("**💡 GPT-4 Rationale:**")
-            rationale_html = f"""
-            <div style="
-                background-color: #fff3cd;
-                padding: 12px;
-                border-radius: 6px;
-                border: 1px solid #ffeeba;
-                ">
-            {rationale}
-            </div>
-            """
-            st.markdown(rationale_html, unsafe_allow_html=True)
-
-        except json.JSONDecodeError:
-            st.warning("⚠️ Could not parse GPT-4 output as JSON. Showing raw:")
-            st.code(raw, language="json")
-
-        st.markdown("### Does GPT-4’s output correctly reflect how much the model applied the edit?")
+    st.markdown("### Does GPT-4’s output correctly reflect how much the model applied the edit?")
 
     # judgment buttons
     cols = st.columns(3)
