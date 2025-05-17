@@ -9,6 +9,10 @@ from google.oauth2.service_account import Credentials
 from datetime import datetime
 import random
 from io import BytesIO
+
+if st.session_state.get("submitted", False):
+    for k in ["samples", "current_idx", "responses", "submitted"]:
+        st.session_state.pop(k, None)
 # ———————————————
 # 1) Google‐Sheets writer (unchanged)
 # ———————————————
@@ -35,18 +39,17 @@ def write_to_gsheet(data):
 # ———————————————
 @st.cache_data
 def load_data(path="edit_df.csv"):
-    return pd.read_csv(path).sample(frac=1, random_state=42).reset_index(drop=True)
+    return pd.read_csv(path)
 
 
 # ———————————————
 # 3) Build samples carrying every column
 # ———————————————
 def prepare_evaluation_samples(df, n_samples=30):
-    # keep all original columns, plus row_number & sample_uid
     df2 = df.copy().reset_index().rename(columns={"index":"row_number"})
     df2["sample_uid"] = df2["row_number"].apply(lambda i: f"item_{i}")
-    # shuffle & take top-n
-    sampled = df2.sample(n=n_samples, random_state=42).reset_index(drop=True)
+    # Now draw n_samples at random (no fixed seed):
+    sampled = df2.sample(n=n_samples).reset_index(drop=True)
     return sampled.to_dict(orient="records")
 
 
