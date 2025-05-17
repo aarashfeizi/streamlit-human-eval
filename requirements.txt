@@ -1,0 +1,7 @@
+streamlit
+pandas
+datasets
+gspread
+google-auth
+toml
+
