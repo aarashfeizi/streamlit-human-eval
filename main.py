@@ -85,7 +85,17 @@ if not is_last:
 
     # 1) Edit prompt
     st.markdown("**1) Edit Prompt**")
-    st.write(sample["edit_prompt"])
+    prompt_html = f"""
+    <div style="
+        background-color: #f0f8ff;
+        padding: 12px;
+        border-radius: 6px;
+        border: 1px solid #cce5ff;
+        ">
+    {sample["edit_prompt"]}
+    </div>
+    """
+    st.markdown(prompt_html, unsafe_allow_html=True)
 
     # 2) Annotator edits (diff-style)
     st.markdown("**2) Annotator’s Ground-Truth Edits**")
@@ -132,7 +142,17 @@ if not is_last:
 
         # 5) show the rationale
         st.markdown("**💡 GPT-4 Rationale:**")
-        st.write(rationale)
+        rationale_html = f"""
+        <div style="
+            background-color: #fff3cd;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #ffeeba;
+            ">
+        {rationale}
+        </div>
+        """
+        st.markdown(rationale_html, unsafe_allow_html=True)
 
     except json.JSONDecodeError:
         # fallback: raw code block if parsing fails
