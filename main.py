@@ -85,7 +85,12 @@ else:
 # collect user ID
 if "user_id" not in st.session_state:
     st.markdown("### Please enter a nickname to begin:")
-    uid = st.text_input("", key="user_id_input")
+    uid = st.text_input(
+    "Enter a nickname", 
+    key="user_id_input", 
+    label_visibility="collapsed", 
+    placeholder="Your nickname…"
+    )
     if st.button("Continue"):
         if uid.strip():
             st.session_state.user_id = uid.strip()
