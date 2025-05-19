@@ -75,7 +75,7 @@ if "samples" not in st.session_state:
 
 samples = st.session_state.samples
 idx = st.session_state.current_idx
-is_last = idx == len(samples)
+is_last = (idx == len(samples))
 
 if not is_last:
     sample = samples[idx]
