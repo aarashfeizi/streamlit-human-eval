@@ -11,6 +11,7 @@ from datetime import datetime
 import random
 from io import BytesIO
 
+st.cache_data.clear()
 N_SAMPLES = 10
 
 if st.session_state.get("submitted", False):
