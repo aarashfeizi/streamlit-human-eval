@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import pandas as pd
 import gspread
@@ -9,6 +10,8 @@ from google.oauth2.service_account import Credentials
 from datetime import datetime
 import random
 from io import BytesIO
+
+N_SAMPLES = 10
 
 if st.session_state.get("submitted", False):
     for k in ["samples", "current_idx", "responses", "submitted"]:
@@ -27,6 +30,11 @@ def write_to_gsheet(data):
     sheet = client.open_by_key("1rKyqOc9OULQaeAFtbqaCumpwM1xlzhxxeQYikeHaSoc").sheet1
 
     header = list(data[0].keys())
+    header = [h for h in header if h not in ['reference', 'model_prediction_code']]
+    print(header)
+    print(data)
+    print(data[0])
+    print(data[0].values())
     if sheet.row_count == 0 or sheet.cell(1, 1).value is None:
         sheet.append_row(header)
 
@@ -60,15 +68,19 @@ st.title("Edit-Alignment Human Evaluation")
 
 if "samples" not in st.session_state:
     df = load_data()
-    st.session_state.samples = prepare_evaluation_samples(df, n_samples=10)
+    st.session_state.samples = prepare_evaluation_samples(df, n_samples=N_SAMPLES)
     st.session_state.current_idx = 0
     st.session_state.responses = {}
     st.session_state.submitted = False
 
 samples = st.session_state.samples
 idx = st.session_state.current_idx
-sample = samples[idx]
-is_last = idx == len(samples) - 1
+is_last = idx == len(samples)
+
+if not is_last:
+    sample = samples[idx]
+else:
+    sample = None
 
 # collect user ID
 if "user_id" not in st.session_state:
@@ -94,22 +106,25 @@ if not is_last:
 
     # 0) Display the image URL in the left column
     # with col_img:
-    url = sample["image_url"]
-    try:
-        resp = requests.get(sample["image_url"], timeout=5)
-        resp.raise_for_status()
-        img = Image.open(BytesIO(resp.content))
-        st.image(img, use_container_width=True)
-    except Exception as e:
-        st.markdown(
-                f"""
-        <details style="font-size:10px; color:#666; margin-top:4px;">
-        <summary style="cursor: pointer;">Image could not be loaded. :(</summary>
-        <pre style="font-size:9px; color:#444; white-space: pre-wrap;">{e}</pre>
-        </details>
-        """,
-                unsafe_allow_html=True,
-            )
+    
+    img = Image.open(os.path.join("images", sample["image_filename"]))
+    st.image(img, use_container_width=True)
+    # url = sample["image_url"]
+    # try:
+    #     resp = requests.get(sample["image_url"], timeout=5)
+    #     resp.raise_for_status()
+    #     img = Image.open(BytesIO(resp.content))
+    #     st.image(img, use_container_width=True)
+    # except Exception as e:
+    #     st.markdown(
+    #             f"""
+    #     <details style="font-size:10px; color:#666; margin-top:4px;">
+    #     <summary style="cursor: pointer;">Image could not be loaded. :(</summary>
+    #     <pre style="font-size:9px; color:#444; white-space: pre-wrap;">{e}</pre>
+    #     </details>
+    #     """,
+    #             unsafe_allow_html=True,
+    #         )
         # with st.expander("Show error details", expanded=False):
         #     st.code(str(e))
 
@@ -131,13 +146,13 @@ if not is_last:
 
     # 2) Annotator edits (diff‐style)
     st.markdown("**2) Annotator’s Ground-Truth Edits**")
-    with st.expander("Show Annotator Edits", expanded=False):
-        st.code(sample["annotator_edits"], language="diff")
+    with st.expander("Show Ground Truth Edits", expanded=False):
+        st.code(sample["reference"], language="diff")
 
     # 3) Model prediction (diff‐style)
     st.markdown("**3) Model’s Original Prediction**")
     with st.expander("Show Model Prediction", expanded=False):
-        st.code(sample["model_prediction"], language="diff")
+        st.code(sample["model_prediction_code"], language="diff")
 
     # 4) GPT-4 output (parsed JSON with colored rating & rationale box)
     st.markdown("**4) GPT-4’s Full Output**")
@@ -210,7 +225,7 @@ if not is_last:
     with restart:
         if st.button("🔄 Restart"):
             df = load_data()
-            st.session_state.samples = prepare_evaluation_samples(df, n_samples=10)
+            st.session_state.samples = prepare_evaluation_samples(df, n_samples=N_SAMPLES)
             st.session_state.current_idx = 0
             st.session_state.responses = {}
             st.session_state.submitted = False
