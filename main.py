@@ -85,6 +85,19 @@ else:
 
 # collect user ID
 if "user_id" not in st.session_state:
+    st.markdown(
+        """
+        ### Welcome to the Code-Edit Human Study!
+
+        Thank you for taking the time to help us evaluate model edits.
+
+        **Before you begin:**
+        - You’ll see a series of code-edit examples. You can answer each one or skip if you’re unsure.
+        - **Your progress is not saved automatically.** After you finish (or skip) all items, be sure to click the **Submit Responses** button at the end.
+
+        Let’s get started!
+        """
+    )
     st.markdown("### Please enter a nickname to begin:")
     uid = st.text_input(
     "Enter a nickname", 
